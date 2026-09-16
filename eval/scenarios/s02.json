@@ -1,0 +1,11 @@
+﻿{
+    "id":  "S02",
+    "name":  "OOMKilled",
+    "alertname":  "OOMKilled",
+    "service":  "rca-demo",
+    "description":  "Container memory exhausted",
+    "inject_cmd":  "kubectl run oom-test --image=polinux/stress --restart=Never -- --vm 1 --vm-bytes 256M --timeout 60s",
+    "cleanup_cmd":  "kubectl delete pod oom-test --ignore-not-found",
+    "ground_truth":  "oom",
+    "fault_type":  "oom"
+}

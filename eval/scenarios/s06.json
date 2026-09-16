@@ -1,0 +1,11 @@
+﻿{
+    "id":  "S06",
+    "name":  "镜像拉取失败",
+    "alertname":  "ImagePullBackOff",
+    "service":  "rca-demo",
+    "description":  "Image tag does not exist",
+    "inject_cmd":  "kubectl set image deployment/rca-demo app=busybox:not-found",
+    "cleanup_cmd":  "kubectl set image deployment/rca-demo app=python:3.11-slim",
+    "ground_truth":  "crashloop",
+    "fault_type":  "crashloop"
+}

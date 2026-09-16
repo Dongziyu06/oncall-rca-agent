@@ -1,0 +1,11 @@
+﻿{
+    "id":  "S01",
+    "name":  "Pod CPU 飙高",
+    "alertname":  "HighCPU",
+    "service":  "rca-demo",
+    "description":  "CPU usage above 90%",
+    "inject_cmd":  "kubectl run cpu-stress --image=progrium/stress --restart=Never -- --cpu 2 --timeout 120s",
+    "cleanup_cmd":  "kubectl delete pod cpu-stress --ignore-not-found",
+    "ground_truth":  "cpu",
+    "fault_type":  "cpu"
+}

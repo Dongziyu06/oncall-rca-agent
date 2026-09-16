@@ -1,0 +1,11 @@
+﻿{
+    "id":  "S03",
+    "name":  "CrashLoopBackOff",
+    "alertname":  "CrashLoopBackOff",
+    "service":  "rca-demo",
+    "description":  "Pod repeatedly crashes",
+    "inject_cmd":  "kubectl run crash-test --image=busybox --restart=Always -- sh -c exit 1",
+    "cleanup_cmd":  "kubectl delete pod crash-test --ignore-not-found",
+    "ground_truth":  "crashloop",
+    "fault_type":  "crashloop"
+}

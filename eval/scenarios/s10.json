@@ -1,0 +1,11 @@
+﻿{
+    "id":  "S10",
+    "name":  "配置错误",
+    "alertname":  "ConfigError",
+    "service":  "rca-demo",
+    "description":  "Required environment variable is missing",
+    "inject_cmd":  "kubectl set env deployment/rca-demo REQUIRED_VAR-",
+    "cleanup_cmd":  "kubectl set env deployment/rca-demo REQUIRED_VAR=ok",
+    "ground_truth":  "unknown",
+    "fault_type":  "unknown"
+}

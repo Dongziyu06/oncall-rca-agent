@@ -1,0 +1,80 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OnCall RCA Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0f172a; color: #e2e8f0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+    code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .panel { background: #1e293b; border: 1px solid #334155; box-shadow: 0 12px 35px rgba(2,6,23,.28); }
+    .input { width: 100%; border: 1px solid #475569; border-radius: .65rem; background: #0f172a; color: #e2e8f0; padding: .7rem .8rem; outline: none; transition: .2s; }
+    .input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,.18); }
+    .agent-row { transition: .2s; border: 1px solid transparent; }
+    .agent-row.active { border-color: rgba(59,130,246,.55); background: rgba(30,64,175,.18); }
+    .agent-row.done { border-color: rgba(34,197,94,.26); }
+    .pulse { animation: pulse 1.4s infinite; }
+    @keyframes pulse { 50% { opacity: .45; } }
+    .markdown h1,.markdown h2,.markdown h3 { color: #f8fafc; margin: 1.2rem 0 .65rem; font-weight: 700; }
+    .markdown h1 { font-size: 1.45rem; } .markdown h2 { font-size: 1.15rem; }
+    .markdown p { margin: .55rem 0; line-height: 1.7; } .markdown ul,.markdown ol { padding-left: 1.4rem; }
+    .markdown code { background: #0f172a; padding: .12rem .3rem; border-radius: .3rem; color: #93c5fd; }
+    .markdown pre { background: #0b1220; padding: .85rem; border-radius: .55rem; overflow: auto; border: 1px solid #334155; }
+    .markdown table { width: 100%; border-collapse: collapse; margin: .7rem 0; } .markdown th,.markdown td { border: 1px solid #475569; padding: .45rem; text-align: left; }
+    .follow-up { border: 1px solid #f59e0b; background: rgba(245,158,11,.12); border-radius: .7rem; padding: 1rem; margin-top: 1rem; }
+    .scrollbar::-webkit-scrollbar { width: 7px; } .scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 99px; }
+  </style>
+</head>
+<body>
+  <div class="min-h-screen">
+    <header class="border-b border-slate-700/80 bg-slate-950/55 backdrop-blur sticky top-0 z-10">
+      <div class="max-w-7xl mx-auto px-5 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3"><div class="text-2xl">🔍</div><div><h1 class="text-lg font-bold tracking-wide">OnCall RCA Assistant</h1><p class="text-xs text-slate-400 mono">multi-agent incident investigation console</p></div></div>
+        <div id="serviceStatus" class="flex items-center gap-2 text-sm text-slate-300"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 pulse"></span><span>Checking service...</span></div>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-5 grid grid-cols-1 lg:grid-cols-5 gap-5">
+      <section class="panel rounded-2xl p-5 lg:col-span-2 h-fit">
+        <div class="flex items-center justify-between mb-5"><div><h2 class="font-semibold text-lg">Alert input</h2><p class="text-xs text-slate-400 mt-1">Start a read-only RCA investigation</p></div><span class="text-xs px-2 py-1 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30">READ ONLY</span></div>
+        <form id="alertForm" class="space-y-4">
+          <label class="block"><span class="text-sm text-slate-300">Alert Name</span><select id="alertName" class="input mt-1"><option>HighCPU</option><option>OOMKilled</option><option>PodCrashLooping</option><option>ServiceTimeout</option><option value="custom">Custom</option></select></label>
+          <label id="customAlertWrap" class="hidden block"><span class="text-sm text-slate-300">Custom alert name</span><input id="customAlert" class="input mt-1" placeholder="MyAlert" /></label>
+          <label class="block"><span class="text-sm text-slate-300">Service Name</span><input id="serviceName" class="input mt-1" placeholder="demo" value="demo" /></label>
+          <label class="block"><span class="text-sm text-slate-300">Description</span><textarea id="description" rows="4" class="input mt-1 resize-y" placeholder="Describe the alert details..."></textarea></label>
+          <button id="submitBtn" class="w-full rounded-lg bg-blue-500 hover:bg-blue-400 text-white font-semibold py-2.5 transition disabled:opacity-50 disabled:cursor-not-allowed"><span id="submitLabel">🚀 Start analysis</span></button>
+        </form>
+        <div class="mt-7 pt-5 border-t border-slate-700"><div class="flex justify-between items-center mb-3"><h3 class="font-semibold">Recent analyses</h3><button id="clearHistory" class="text-xs text-slate-400 hover:text-white">Clear</button></div><div id="history" class="space-y-2 max-h-64 overflow-y-auto scrollbar"><p class="text-sm text-slate-500">No analyses yet.</p></div></div>
+      </section>
+
+      <section class="panel rounded-2xl overflow-hidden lg:col-span-3 min-h-[620px] flex flex-col">
+        <div class="flex border-b border-slate-700"><button data-tab="progress" class="tab px-5 py-3 text-sm font-semibold border-b-2 border-blue-400 text-blue-300">Realtime progress</button><button data-tab="report" class="tab px-5 py-3 text-sm font-semibold text-slate-400 border-b-2 border-transparent">RCA report</button><div class="ml-auto flex items-center px-4 text-xs text-slate-500 mono" id="taskLabel">idle</div></div>
+        <div id="progressTab" class="p-5 flex-1"><div class="mb-5"><div class="flex justify-between text-xs text-slate-400 mb-2"><span>Investigation pipeline</span><span id="progressCount">0/7 complete</span></div><div class="h-1.5 rounded-full bg-slate-700 overflow-hidden"><div id="progressBar" class="h-full bg-blue-500 transition-all duration-500" style="width:0%"></div></div></div><div id="agents" class="space-y-2"></div><div id="emptyProgress" class="text-center text-slate-500 text-sm py-16">Submit an alert to begin the investigation.</div></div>
+        <div id="reportTab" class="hidden p-6 flex-1 overflow-y-auto scrollbar"><div id="reportEmpty" class="text-center text-slate-500 text-sm py-16">Your RCA report will appear here.</div><article id="report" class="markdown hidden max-w-none"></article></div>
+      </section>
+    </main>
+  </div>
+
+<script>
+const AGENTS=['Router','MetricAgent','K8sAgent','RunbookAgent','Summarize','FollowUpAgent','Report'];
+const icons={Router:'🧭',MetricAgent:'📈',K8sAgent:'☸️',RunbookAgent:'📚',Summarize:'🧠',FollowUpAgent:'🔍',Report:'📝'};
+let states={}, currentReport='', currentTask='', source;
+const $=id=>document.getElementById(id);
+function initAgents(){states={}; $('agents').innerHTML=AGENTS.map(n=>{states[n]={status:'waiting'};return `<div id="agent-${n}" class="agent-row rounded-lg px-3 py-3 flex items-center gap-3"><span class="text-lg w-7">${icons[n]}</span><div class="min-w-0 flex-1"><div class="flex items-center gap-2"><span class="font-semibold text-sm">${n}</span><span id="status-${n}" class="text-xs text-slate-500">Waiting</span></div><div id="result-${n}" class="text-xs text-slate-500 mono truncate mt-1"></div></div><span id="mark-${n}" class="text-slate-600">○</span></div>`}).join(''); updateProgress();}
+function updateProgress(){let done=AGENTS.filter(n=>states[n]?.status==='completed').length; $('progressCount').textContent=`${done}/${AGENTS.length} complete`; $('progressBar').style.width=`${done/AGENTS.length*100}%`;}
+function updateAgent(d){if(!states[d.node])return;states[d.node].status=d.status;let row=$(`agent-${d.node}`);row.classList.toggle('active',d.status==='started');row.classList.toggle('done',d.status==='completed');$(`status-${d.node}`).textContent=d.status==='started'?'Running':d.status==='completed'?'Completed':'Waiting';$(`status-${d.node}`).className='text-xs '+(d.status==='started'?'text-blue-300 pulse':d.status==='completed'?'text-green-400':'text-slate-500');$(`mark-${d.node}`).textContent=d.status==='started'?'⏳':d.status==='completed'?'✅':'○';if(d.result)$(`result-${d.node}`).textContent=typeof d.result==='string'?d.result:JSON.stringify(d.result);updateProgress();}
+function selectTab(name){document.querySelectorAll('.tab').forEach(b=>{let on=b.dataset.tab===name;b.classList.toggle('text-blue-300',on);b.classList.toggle('border-blue-400',on);b.classList.toggle('text-slate-400',!on);b.classList.toggle('border-transparent',!on)});$('progressTab').classList.toggle('hidden',name!=='progress');$('reportTab').classList.toggle('hidden',name!=='report');}
+function history(){try{return JSON.parse(localStorage.getItem('rca-history')||'[]')}catch(e){return []}}
+function renderHistory(){let h=history();$('history').innerHTML=h.length?h.slice(0,5).map((x,i)=>`<button data-history="${i}" class="w-full text-left rounded-lg border border-slate-700 hover:border-blue-500/60 bg-slate-900/40 p-3 transition"><div class="flex justify-between"><span class="text-sm font-medium text-slate-200">${escapeHtml(x.alertname)}</span><span class="text-xs text-slate-500">${x.time}</span></div><span class="inline-block mt-2 text-xs rounded-full px-2 py-0.5 bg-blue-500/15 text-blue-300">${escapeHtml(x.fault_type||'unknown')}</span></button>`).join(''):'<p class="text-sm text-slate-500">No analyses yet.</p>';document.querySelectorAll('[data-history]').forEach(b=>b.onclick=()=>{let x=h[Number(b.dataset.history)];showReport(x.report);selectTab('report')})}
+function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function saveHistory(report,alertname){let m=report.match(/(?:故障类型|Fault type).*?[:：]\s*\**\s*([\w-]+)/i);let h=history();h.unshift({time:new Date().toLocaleTimeString(),alertname,fault_type:m?m[1]:'unknown',report});localStorage.setItem('rca-history',JSON.stringify(h.slice(0,10)));renderHistory()}
+function showReport(text){currentReport=text;$('reportEmpty').classList.add('hidden');$('report').classList.remove('hidden');$('report').innerHTML=marked.parse(text||'');let follow=text.includes('主动追问')||text.includes('Follow-up');$('report').classList.toggle('follow-up',follow)}
+async function start(e){e.preventDefault();if(source)source.close();initAgents();$('emptyProgress').classList.add('hidden');$('report').classList.add('hidden');$('reportEmpty').classList.remove('hidden');selectTab('progress');$('submitBtn').disabled=true;$('submitLabel').textContent='Analyzing...';let name=$('alertName').value==='custom'?$ ('customAlert').value:$('alertName').value;let desc=$('description').value||name;try{let r=await fetch('/alert',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({alerts:[{labels:{alertname:name,service:$('serviceName').value||'demo'},annotations:{description:desc}}]})});if(!r.ok)throw Error('Alert request failed');let data=await r.json();currentTask=data.task_id;$('taskLabel').textContent=currentTask.slice(0,8);source=new EventSource('/task/'+currentTask+'/stream');source.onmessage=ev=>{let d=JSON.parse(ev.data);if(d.type==='progress')updateAgent(d);if(d.type==='report'){showReport(d.report);saveHistory(d.report,name);selectTab('report');source.close();$('submitBtn').disabled=false;$('submitLabel').textContent='🚀 Start analysis'}};source.onerror=()=>{source.close();$('submitBtn').disabled=false;$('submitLabel').textContent='🚀 Start analysis'}}catch(err){$('taskLabel').textContent=err.message;$('submitBtn').disabled=false;$('submitLabel').textContent='🚀 Start analysis'}}
+$('alertName').onchange=()=> $('customAlertWrap').classList.toggle('hidden',$('alertName').value!=='custom');$('alertForm').onsubmit=start;document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>selectTab(b.dataset.tab));$('clearHistory').onclick=()=>{localStorage.removeItem('rca-history');renderHistory()};
+async function checkService(){let online=false;try{let r=await fetch('/docs',{cache:'no-store'});online=r.ok}catch(e){}let el=$('serviceStatus');el.innerHTML=`<span class="w-2.5 h-2.5 rounded-full ${online?'bg-green-500':'bg-red-500'}"></span><span>${online?'Service Online':'Service Offline'}</span>`}setInterval(checkService,10000);checkService();initAgents();renderHistory();
+</script>
+</body></html>

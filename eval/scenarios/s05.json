@@ -1,0 +1,11 @@
+﻿{
+    "id":  "S05",
+    "name":  "服务响应慢",
+    "alertname":  "RequestTimeout",
+    "service":  "rca-demo",
+    "description":  "Service responses are slow",
+    "inject_cmd":  "kubectl annotate deployment rca-demo fault=timeout --overwrite",
+    "cleanup_cmd":  "kubectl annotate deployment rca-demo fault-",
+    "ground_truth":  "timeout",
+    "fault_type":  "timeout"
+}

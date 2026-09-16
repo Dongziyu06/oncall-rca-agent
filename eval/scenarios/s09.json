@@ -1,0 +1,11 @@
+﻿{
+    "id":  "S09",
+    "name":  "依赖超时",
+    "alertname":  "DependencyTimeout",
+    "service":  "rca-demo",
+    "description":  "Dependency network delay",
+    "inject_cmd":  "kubectl annotate deployment rca-demo dependency=timeout --overwrite",
+    "cleanup_cmd":  "kubectl annotate deployment rca-demo dependency-",
+    "ground_truth":  "timeout",
+    "fault_type":  "timeout"
+}

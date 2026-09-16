@@ -1,0 +1,11 @@
+﻿{
+    "id":  "S07",
+    "name":  "Pod Pending",
+    "alertname":  "PodPending",
+    "service":  "rca-demo",
+    "description":  "Pod pending due to insufficient resources",
+    "inject_cmd":  "kubectl run pending-test --image=busybox --requests=cpu=1000 --limits=cpu=1000",
+    "cleanup_cmd":  "kubectl delete pod pending-test --ignore-not-found",
+    "ground_truth":  "unknown",
+    "fault_type":  "unknown"
+}

@@ -1,0 +1,11 @@
+﻿{
+    "id":  "S08",
+    "name":  "节点压力",
+    "alertname":  "NodePressure",
+    "service":  "rca-demo",
+    "description":  "Node is under resource pressure",
+    "inject_cmd":  "kubectl describe nodes",
+    "cleanup_cmd":  "kubectl get nodes",
+    "ground_truth":  "cpu",
+    "fault_type":  "cpu"
+}

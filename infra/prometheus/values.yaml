@@ -1,0 +1,7 @@
+﻿server:
+  service:
+    type: NodePort
+    nodePort: 30090
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false

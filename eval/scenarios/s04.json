@@ -1,0 +1,11 @@
+﻿{
+    "id":  "S04",
+    "name":  "Pod副本为0",
+    "alertname":  "DeploymentScaledZero",
+    "service":  "rca-demo",
+    "description":  "Deployment replicas are zero",
+    "inject_cmd":  "kubectl scale deployment rca-demo --replicas=0",
+    "cleanup_cmd":  "kubectl scale deployment rca-demo --replicas=1",
+    "ground_truth":  "unknown",
+    "fault_type":  "unknown"
+}

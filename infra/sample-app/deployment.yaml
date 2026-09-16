@@ -1,0 +1,19 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rca-demo
+  labels: {app: rca-demo}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: rca-demo}}
+  template:
+    metadata: {labels: {app: rca-demo}}
+    spec:
+      containers:
+      - name: app
+        image: python:3.11-slim
+        command: ["python", "-c"]
+        args: ["import time; print('rca-demo running'); time.sleep(3600)"]
+        resources:
+          requests: {cpu: 10m, memory: 32Mi}
+          limits: {cpu: 200m, memory: 128Mi}
