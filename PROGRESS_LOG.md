@@ -224,7 +224,13 @@ ForensicsAgent 将此 `last_state` 传给 LLM，使 LLM 能精确定位根因而
 - 测试断言由 `assert 'Runbook' in report` 改为兼容 LLM 中文输出（含"参考知识库"或"RCA"）
 - **10/10 passed**
 
-#### ④ MCP 协议工具层 ✅ 已完成
+## 第 6 节点（2026-09-17）：实验室 GitLab + CI/CD
+
+- 仓库：https://gitlab.fir.ac.cn/Dongziyu/oncall-rca-agent
+- 远程：`origin`=GitHub，`gitlab`=实验室 GitLab
+- 新增 `.gitlab-ci.yml`：`test`（pytest）+ `deploy_lab`（main 手动 SSH 部署）
+- 新增 `scripts/deploy_lab.sh`；`DEPLOY.md` 改为实验室主路径
+
 
 **新增文件：** `tools/mcp_server.py`  
 将现有只读工具包装为 MCP Tool，不改底层实现：

@@ -1,0 +1,89 @@
+# GitLab CI — 实验室主路径
+# 仓库：https://gitlab.fir.ac.cn/Dongziyu/oncall-rca-agent
+#
+# 阶段：
+#   1) test   — 每次 push / MR 跑 pytest
+#   2) deploy — 仅 main，默认手动触发（配置好 SSH 变量后点 Play）
+#
+# 首次使用前请在 GitLab → Settings → CI/CD → Variables 配置：
+#   LAB_HOST              例如 10.10.140.2
+#   LAB_USER              例如 cnic
+#   LAB_SSH_PRIVATE_KEY   部署用私钥全文（Type: Variable, Protected, Masked 关；File 类型更佳）
+#   LAB_DEPLOY_PATH       例如 /home/cnic/oncall-rca-agent 或 /opt/oncall-rca-agent
+#
+# 若 Runner 就装在实验室机器上，可给 Runner 打 tag: lab，并改用下方 deploy_lab_shell 作业。
+
+stages:
+  - test
+  - deploy
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PYTHONUTF8: "1"
+  # 单测不连真实集群
+  KUBECONFIG: ""
+  USE_MOCK: "true"
+
+# ───────────────────────── test ─────────────────────────
+test:
+  stage: test
+  image: python:3.11-slim
+  cache:
+    key: pip-py311
+    paths:
+      - .cache/pip
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends build-essential >/dev/null
+    - python -m pip install --upgrade pip
+    - pip install -r requirements.txt
+  script:
+    - python -m pytest -q --tb=line
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+# ───────────────────────── deploy（SSH 到实验室机）─────────────────────────
+deploy_lab:
+  stage: deploy
+  image: alpine:3.20
+  resource_group: lab-rca
+  needs: ["test"]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - |
+      if [ -z "${LAB_HOST}" ] || [ -z "${LAB_USER}" ] || [ -z "${LAB_SSH_PRIVATE_KEY}" ]; then
+        echo "缺少 CI 变量：LAB_HOST / LAB_USER / LAB_SSH_PRIVATE_KEY"
+        echo "请到 Settings → CI/CD → Variables 配置后再运行此作业"
+        exit 1
+      fi
+    - eval "$(ssh-agent -s)"
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - printf '%s\n' "$LAB_SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - ssh-keyscan -H "$LAB_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+  script:
+    - |
+      DEPLOY_PATH="${LAB_DEPLOY_PATH:-/opt/oncall-rca-agent}"
+      ssh -o StrictHostKeyChecking=accept-new "${LAB_USER}@${LAB_HOST}" \
+        "DEPLOY_PATH='${DEPLOY_PATH}' CI_COMMIT_SHA='${CI_COMMIT_SHA}' bash -s" \
+        < scripts/deploy_lab.sh
+  environment:
+    name: lab
+    url: http://10.10.140.2:8000
+
+# ───────────────────────── 可选：Runner 就在实验室机上 ─────────────────────────
+# 给 Runner 打 tag `lab` 后启用：取消注释，并在 GitLab 里禁用上面的 deploy_lab（或删掉）
+#
+# deploy_lab_shell:
+#   stage: deploy
+#   tags: [lab]
+#   needs: ["test"]
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == "main"
+#       when: on_success
+#   script:
+#     - export DEPLOY_PATH="${LAB_DEPLOY_PATH:-$HOME/oncall-rca-agent}"
+#     - export CI_COMMIT_SHA
+#     - bash scripts/deploy_lab.sh

@@ -129,7 +129,8 @@ Copy-Item .env.example .env
 docker compose up -d --build
 ```
 
-云服务器日常更新见 [DEPLOY.md](DEPLOY.md)。
+**主部署路径是实验室**（与 K8s/Prometheus 同网）：见 [DEPLOY.md](DEPLOY.md)。  
+GitLab CI：`.gitlab-ci.yml`（`test` 自动；`deploy_lab` 在 main 上手动触发）。
 
 Compose 通过 `env_file` 注入密钥；`.env` 不打进镜像；Runbook 只读挂载；Chroma 持久化在 `chroma_data` volume。
 
