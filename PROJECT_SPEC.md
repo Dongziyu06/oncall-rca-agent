@@ -97,47 +97,51 @@
 
 ---
 
-## 四、技术架构
+## 四、技术架构（已实现，以代码为准）
 
 ### 4.1 整体流程图
 
+**告警流水线（Plan-Execute）：**
+
 ```
-[告警 / 自然语言输入]
+[告警 / Web UI]
         ↓
-[FastAPI 接入层]  ←→  SSE / WebSocket 推进度到前端
+[FastAPI POST /alert]  ←→  SSE 推进度
         ↓
-[LangGraph 编排层]
-  ├─ [Skill Router]：判断故障类型，选排查套路
-  ├─ [MetricAgent]：调用 Prometheus HTTP API，执行 PromQL
-  ├─ [K8sAgent]：调用 kubernetes Python client，只读
-  ├─ [LogAgent]：查 Loki HTTP API 或 kubectl logs
-  └─ [RunbookAgent]：Milvus 向量检索 + BM25 混合召回
-        ↓
-[证据汇总节点]
-        ↓
-[LLM 推理]：输入=所有证据，输出=结构化 RCA JSON
-        ↓
-[报告输出]：Markdown 格式，含置信度/证据链/建议
-        ↓
-[（可选）审批门禁]：高风险建议需人工确认
+[LangGraph Orchestrator]
+  ├─ Router：LLM 分类 fault_type（失败 → 关键词兜底）
+  ├─ PlannerAgent：动态选择 Metric / K8s / Forensics
+  ├─ MetricAgent：Prometheus PromQL
+  ├─ K8sAgent：Pod 状态 + lastState 退出码
+  ├─ ForensicsAgent：crashloop/oom 时拉 logs + events
+  ├─ RunbookAgent：Chroma + BM25 + RRF（147 文档）
+  ├─ Summarize：多模型 LLM 生成中文 RCA
+  ├─ FollowUpAgent：置信度 < 0.5 时输出下一步查询计划
+  └─ Report：SSE 推送
 ```
+
+**对话模式（ReAct）：** `POST /chat` → think → tool → think → answer（多轮 session）
+
+**MCP：** 内部直接调 `tools/*.py`；另用 FastMCP 把同一批工具暴露为 `/mcp`（Streamable HTTP）
+
+Mode A（baseline）：Router → Summarize → Report  
+Mode B（full）：完整上图流水线
 
 ### 4.2 技术栈清单
 
 | 层次 | 技术选型 | 说明 |
 |------|----------|------|
-| API 层 | **FastAPI** + Uvicorn | 接收告警 webhook、提供 SSE 接口 |
-| Agent 编排 | **LangGraph** | 有状态多 Agent 工作流 |
-| LLM | **DeepSeek / OpenAI / Anthropic**（可配置） | 通过 litellm 统一接口 |
-| 向量检索 | **Milvus**（简化用 Chroma 也可） | Runbook / 历史案例 RAG |
-| 稀疏检索 | **BM25**（rank_bm25） | 和向量召回做 RRF 融合 |
-| 指标数据源 | **Prometheus HTTP API** | 执行 PromQL 查指标 |
-| 集群数据源 | **kubernetes Python client** | 只读：Pod/Event/Describe |
-| 日志数据源 | **Loki HTTP API** 或 kubectl logs | 查容器日志 |
-| 数据持久 | **SQLite**（演示够用） / Postgres | 任务记录、证据存储 |
-| 部署 | **Docker Compose** | 一键拉起所有服务 |
-| 测试集群 | **kind**（Kubernetes in Docker） | 本地假 K8s |
-| 前端（可选）| 简单 HTML + JS，消费 SSE | 看到进度和报告即可 |
+| API 层 | **FastAPI** + Uvicorn + SSE | 告警、对话、任务流 |
+| Agent 编排 | **LangGraph** | Plan-Execute 流水线 + ReAct 对话 |
+| LLM | **阿里云 Token Plan**（httpx 直连） | Router/FollowUp/Summarize 多模型路由 |
+| 向量检索 | **ChromaDB** | Runbook / Postmortem RAG |
+| 稀疏检索 | **BM25** + **RRF** | 与向量召回融合 |
+| 指标 | **Prometheus HTTP API** | PromQL |
+| 集群 | **kubernetes Python client** | Pod/日志/Events/退出码 |
+| 日志 | **Loki HTTP API** | 可选 |
+| 工具协议 | **MCP（FastMCP 1.x）** | `/mcp` Streamable HTTP |
+| 部署 | **Docker Compose** + 阿里云 ECS | 见 DEPLOY.md |
+| 前端 | HTML + Tailwind + marked.js | 告警分析 + 对话分析 |
 
 ### 4.3 核心模块目录结构（建议）
 

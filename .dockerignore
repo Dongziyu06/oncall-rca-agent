@@ -1,0 +1,14 @@
+﻿.env
+.venv/
+.chroma/
+.git/
+.specstory/
+__pycache__/
+**/__pycache__/
+*.pyc
+eval/results/*.json
+.eval/results/*.json
+.pytest_cache/
+*.log
+uvicorn.log
+uvicorn.err.log

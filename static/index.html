@@ -77,4 +77,30 @@ async function start(e){e.preventDefault();if(source)source.close();initAgents()
 $('alertName').onchange=()=> $('customAlertWrap').classList.toggle('hidden',$('alertName').value!=='custom');$('alertForm').onsubmit=start;document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>selectTab(b.dataset.tab));$('clearHistory').onclick=()=>{localStorage.removeItem('rca-history');renderHistory()};
 async function checkService(){let online=false;try{let r=await fetch('/docs',{cache:'no-store'});online=r.ok}catch(e){}let el=$('serviceStatus');el.innerHTML=`<span class="w-2.5 h-2.5 rounded-full ${online?'bg-green-500':'bg-red-500'}"></span><span>${online?'Service Online':'Service Offline'}</span>`}setInterval(checkService,10000);checkService();initAgents();renderHistory();
 </script>
-</body></html>
+  <div id="chatPanel" class="hidden chat-panel-fixed">
+    <div class="panel rounded-2xl overflow-hidden flex flex-col" style="min-height:620px">
+      <div class="flex items-center justify-between p-4 border-b border-slate-700"><div><h2 class="font-semibold">💬 对话分析</h2><p class="text-xs text-slate-400">ReAct 多轮 SRE 取证助手</p></div><div class="flex items-center gap-2"><span id="chatSession" class="text-xs mono text-slate-500">未开始</span><button id="newChat" class="text-xs px-3 py-1 rounded bg-slate-700 hover:bg-slate-600">新对话</button></div></div>
+      <div id="chatMessages" class="flex-1 p-4 space-y-3 overflow-y-auto scrollbar"></div>
+      <form id="chatForm" class="p-4 border-t border-slate-700 flex gap-2"><input id="chatInput" class="input flex-1" placeholder="描述问题，例如：我的 vlb 服务一直 CrashLoopBackOff" autocomplete="off"/><button class="rounded-lg bg-blue-500 hover:bg-blue-400 px-5 font-semibold">发送</button></form>
+    </div>
+  </div>
+  <div id="chatNav" class="fixed top-[76px] right-5 z-20 flex gap-1 rounded-lg bg-slate-800/90 border border-slate-700 p-1"><button data-view="alert" class="px-3 py-1.5 text-xs rounded bg-blue-500 text-white">🚨 告警分析</button><button data-view="chat" class="px-3 py-1.5 text-xs rounded text-slate-300">💬 对话分析</button></div>
+  <style>
+    .chat-user{margin-left:auto;max-width:80%;background:#2563eb;color:white;border-radius:1rem 1rem .25rem 1rem;padding:.65rem .85rem}.chat-assistant{max-width:85%;background:#334155;border-radius:1rem 1rem 1rem .25rem;padding:.65rem .85rem}.chat-tool{font:12px ui-monospace,monospace;color:#93c5fd;background:#0f172a;border:1px solid #334155;border-radius:.5rem;padding:.4rem .6rem;max-width:90%}
+    .chat-panel-fixed{position:fixed;z-index:15;top:108px;left:50%;transform:translateX(-50%);width:min(1024px,calc(100vw - 40px));height:calc(100vh - 132px);padding:0}
+    .chat-panel-fixed > .panel{height:100%;min-height:0}@media(max-width:640px){.chat-panel-fixed{top:96px;width:calc(100vw - 20px);height:calc(100vh - 108px)}}
+  </style>
+  <script>
+  (function(){const main=document.querySelector('main'), panel=document.getElementById('chatPanel'), nav=document.getElementById('chatNav'), msgs=document.getElementById('chatMessages');let sid=null, stream=null;
+    function bubble(cls,text){const d=document.createElement('div');d.className=cls;d.innerHTML=cls.includes('assistant')&&window.marked?marked.parse(text):escapeHtml(text);msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;return d}
+    function view(v){main.classList.toggle('hidden',v==='chat');panel.classList.toggle('hidden',v!=='chat');nav.querySelectorAll('button').forEach(b=>{const on=b.dataset.view===v;b.classList.toggle('bg-blue-500',on);b.classList.toggle('text-white',on)});if(v==='chat'){window.scrollTo(0,0);document.documentElement.scrollTop=0;document.body.scrollTop=0;}}
+    nav.querySelectorAll('button').forEach(b=>b.onclick=()=>view(b.dataset.view));document.getElementById('newChat').onclick=()=>{sid=null;document.getElementById('chatSession').textContent='未开始';msgs.innerHTML='';if(stream)stream.close()};
+    document.getElementById('chatForm').onsubmit=async e=>{e.preventDefault();const input=document.getElementById('chatInput'),message=input.value.trim();if(!message)return;input.value='';bubble('chat-user',message);try{const r=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,message})});if(!r.ok)throw Error('Chat API '+r.status+'：请重启后端服务');const d=await r.json();if(!d.session_id)throw Error('Chat API 未返回 session_id');sid=d.session_id;document.getElementById('chatSession').textContent=sid.slice(0,8);if(stream)stream.close();stream=new EventSource('/chat/'+sid+'/stream');stream.onmessage=ev=>{const x=JSON.parse(ev.data);if(x.type==='thinking')bubble('chat-tool','⏳ '+x.content);if(x.type==='tool_result')bubble('chat-tool','🔧 '+x.tool+': '+(JSON.stringify(x.result)||'无返回数据').slice(0,500));if(x.type==='answer')bubble('chat-assistant',x.content);if(x.type==='done')stream.close()};}catch(err){bubble('chat-assistant','请求失败：'+err.message)}};
+  })();
+  </script></body></html>
+
+
+
+
+
+

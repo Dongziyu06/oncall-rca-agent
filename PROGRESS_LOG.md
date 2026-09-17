@@ -131,3 +131,116 @@ uvicorn api.main:app --reload
 
 > dry-run 数字同上（0ms）；真实 avg 约 1s，两模式相同因 Prometheus/K8s 均为 mock fallback（无外部集群连接）。命中率 80%（8/10），2 个误分类场景待接真实集群后补查。
 
+---
+
+## 第 5 节点（2026-09-16）：深度完善 — 对话化 + MCP + 动态规划 + RAG 量化
+
+**背景**：与同类项目对比后发现 4 项关键差距，本节点全部补齐。
+
+### 5.1 实验室 K8s 真实接入 & ForensicsAgent
+
+**完成事项（2026-09-16）：**
+- VPN 连接实验室服务器 `cnic@10.10.140.2`
+- `.env` 接入真实 `PROMETHEUS_URL=http://10.10.140.2:30090` 和 `KUBECONFIG`
+- `tools/k8s_tools.py` 新增 `last_state` 字段：**退出码 + 错误信息 + 终止时间**
+- 真实 e2e 验证：`vlb` Pod（restarts=4419，exit_code=128，StartError，containerd broken pipe）
+- 修复全部 4 个废弃测试（`acompletion` → `llm_client.chat` monkeypatch），**10/10 passed**
+
+**关键证据（对面试有用）：**
+```
+vlb Pod：exit_code=128, reason=StartError
+message: failed to create containerd task: OCI runtime create failed:
+         container_linux.go:370: starting container process caused:
+         process_linux.go:369: sending config to init process caused:
+         write init-p: broken pipe: unknown
+```
+这说明容器进程从未启动（broken pipe），因此 `--previous` 日志为空是正常的。
+ForensicsAgent 将此 `last_state` 传给 LLM，使 LLM 能精确定位根因而非模糊推测。
+
+---
+
+### 5.2 四项架构升级（计划中，Codex 实现）
+
+#### ① RAG Recall@3 量化评测 ✅ 已完成
+
+**关键发现：区分两种评测场景**
+
+| 评测类型 | 样本来源 | Recall@3 | MRR | 意义 |
+|---------|---------|---------|-----|------|
+| in-distribution（Codex 定制）| `eval/rag_eval_dataset.json`（20条） | **100%** | 0.79 | 循环评测，过于理想 |
+| out-of-distribution（真实告警）| `eval/scenarios/S01-S10.json`（10条） | **70%** | 0.48 | 更真实，可写进简历 |
+
+**3 个 miss 分析（知识库盲区）：**
+- S04 `"Deployment replicas are zero"` → expected_ids 未覆盖 Prometheus Operator 的 Deployment 类 runbook
+- S06 `"Image tag does not exist"` → ImagePullBackOff 专项 runbook 缺失
+- S10 `"Required environment variable is missing"` → 配置错误类文档缺失
+
+**新增文件：**
+- `eval/rag_eval_dataset.json`：20 条定制评测集
+- `eval/test_rag.py`：支持 --top-k --verbose 的量化评测脚本
+- `eval/honest_rag_test.py`：用真实告警描述做 out-of-distribution 测试（更有意义）
+
+**简历写法：**
+> "设计双层 RAG 评测体系（in-dist Recall@3=100%，out-of-dist Recall@3=70% / MRR=0.48），识别出 ImagePullBackOff 和配置错误类知识盲区，具备改进方向"
+
+#### ② 对话式 Chat + ReAct 多轮问答 ✅ 已完成
+
+**架构**：ReAct 循环（think → execute_tool → think → ... → answer，最多10步）
+
+**新增文件：**
+- `agents/chat_agent.py`：ReAct 状态机，支持5个工具（K8s/Prometheus/Loki/RAG），内存多轮历史（最近20条）
+- `api/routes/chat.py`：POST `/chat` + GET `/chat/{sid}/stream`（SSE推送）
+
+**UI 升级：**
+- `static/index.html` 右上角新增 🚨/💬 切换按钮
+- 💬 对话面板：用户气泡（右/蓝）+ 助手气泡（左/灰）+ 工具调用气泡（monospace）
+- 支持 Markdown 渲染、Enter 发送、新对话按钮
+
+**e2e 验证**：
+- 发送 `"我的vlb服务一直CrashLoopBackOff"` → LLM 自动调用 `get_pod_status(vlb)` → 连接实验室 K8s ✅
+- 修复：工具调用加 `asyncio.wait_for(timeout=30s)` 超时保护（防 VPN 断开时无限卡死）
+
+**测试**：10/10 passed
+
+#### ③ 动态 Agent 选择（Planner 节点）✅ 已完成
+
+**流水线升级**：
+```
+旧：Router → Metric → K8s → Forensics → Runbook → Summarize → FollowUp → Report
+新：Router → PlannerAgent → [按计划执行] → Runbook → Summarize → FollowUp → Report
+```
+
+**PlannerAgent 逻辑**：
+- 用 LLM（轻量 `LLM_MODEL_ROUTER`）分析 fault_type + alert description
+- 输出 JSON 数组：`["K8sAgent", "ForensicsAgent"]`（仅调用必要的 Agent）
+- LLM 失败时按规则 fallback：cpu/timeout 加 MetricAgent，crashloop/oom 加 ForensicsAgent
+
+**Guard 检查**（防止 Planner 形同虚设）：
+- `metric`/`k8s`/`forensics` 节点先检查 `s['plan']`，不在其中则直接 return 跳过
+- `plan` 为空时默认执行（兜底保护）
+
+**修复记录**：
+- Codex 生成版本未在 metric/k8s/forensics 中加 guard 检查（Planner 有制定计划但下游无视），人工补充
+- 测试断言由 `assert 'Runbook' in report` 改为兼容 LLM 中文输出（含"参考知识库"或"RCA"）
+- **10/10 passed**
+
+#### ④ MCP 协议工具层 ✅ 已完成
+
+**新增文件：** `tools/mcp_server.py`  
+将现有只读工具包装为 MCP Tool，不改底层实现：
+- `prometheus_query`
+- `kubernetes_pod_status` / `kubernetes_pod_logs` / `kubernetes_events`
+- `loki_logs`
+
+**接入方式：**
+- 依赖：`mcp>=1.0,<2`（mcp 2.x 移除了 FastMCP，锁定 1.x）
+- FastAPI 挂载：`/mcp`（Streamable HTTP）
+- MCP 导入失败时打印警告，主服务仍可启动
+
+**核对时修复的 3 个实际不可用问题：**
+1. FastMCP 默认路径是 `/mcp`，再 mount 到 `/mcp` 会变成 `/mcp/mcp` → 改为 `streamable_http_path="/"`
+2. FastAPI 不会自动启动子应用 lifespan，MCP 报 `Task group is not initialized` → 在 FastAPI `lifespan` 里 `async with mcp.session_manager.run()`
+3. 默认 DNS rebinding 只允许 localhost，公网 IP / TestClient 会被拦 → 演示环境关闭该校验
+
+**验证：** `initialize` + `tools/list` 返回 5 个工具，serverInfo.name = `oncall-rca-tools`
+

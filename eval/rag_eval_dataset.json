@@ -1,0 +1,23 @@
+﻿[
+  {"query":"CPU throttling pod resource limits container","expected_ids":["high_cpu_load","CPU_Throttling_High_kube_prometheus_runbooks"],"fault_type":"cpu"},
+  {"query":"container CPU usage above 90 percent sustained","expected_ids":["high_cpu_load","CPU_Throttling_High_kube_prometheus_runbooks"],"fault_type":"cpu"},
+  {"query":"kubernetes CPU cfs throttled seconds limits","expected_ids":["CPU_Throttling_High_kube_prometheus_runbooks","high_cpu_load"],"fault_type":"cpu"},
+  {"query":"node CPU overcommit pods requests","expected_ids":["Kube_CPU_Overcommit_kube_prometheus_runbooks","Kube_CPU_Quota_Overcommit_kube_prometheus_runbooks"],"fault_type":"cpu"},
+  {"query":"high CPU load PromQL kubectl top pod","expected_ids":["high_cpu_load","CPU_Throttling_High_kube_prometheus_runbooks"],"fault_type":"cpu"},
+  {"query":"OOMKilled exit code 137 memory limit container","expected_ids":["oom_killed","Kube_Memory_Overcommit_kube_prometheus_runbooks"],"fault_type":"oom"},
+  {"query":"container memory working set exceeds limit OOM","expected_ids":["oom_killed","Kube_Memory_Overcommit_kube_prometheus_runbooks"],"fault_type":"oom"},
+  {"query":"kubernetes out of memory killed previous logs","expected_ids":["oom_killed","Kube_Memory_Overcommit_kube_prometheus_runbooks"],"fault_type":"oom"},
+  {"query":"memory pressure pod eviction kubelet","expected_ids":["oom_killed","Kube_Memory_Overcommit_kube_prometheus_runbooks"],"fault_type":"oom"},
+  {"query":"CrashLoopBackOff container restart previous logs","expected_ids":["crashloop_backoff","Kube_Pod_Crash_Looping_kube_prometheus_runbooks"],"fault_type":"crashloop"},
+  {"query":"pod repeatedly crashes exit code startup command","expected_ids":["crashloop_backoff","Kube_Pod_Crash_Looping_kube_prometheus_runbooks"],"fault_type":"crashloop"},
+  {"query":"BackOff restarting failed container kubectl describe","expected_ids":["Kube_Pod_Crash_Looping_kube_prometheus_runbooks","crashloop_backoff"],"fault_type":"crashloop"},
+  {"query":"CrashLooping deployment probe failure","expected_ids":["Kube_Pod_Crash_Looping_kube_prometheus_runbooks","crashloop_backoff"],"fault_type":"crashloop"},
+  {"query":"service timeout high latency request duration P99","expected_ids":["service_timeout","Kubelet_Pod_Start_Up_Latency_High_kube_prometheus_runbooks"],"fault_type":"timeout"},
+  {"query":"HTTP request timeout slow response latency","expected_ids":["service_timeout","Kubelet_Pod_Start_Up_Latency_High_kube_prometheus_runbooks"],"fault_type":"timeout"},
+  {"query":"upstream dependency timeout 5xx error rate","expected_ids":["service_timeout","Kubelet_Pod_Start_Up_Latency_High_kube_prometheus_runbooks"],"fault_type":"timeout"},
+  {"query":"node not ready kubelet heartbeat condition","expected_ids":["node_not_ready","Kube_Node_Not_Ready_kube_prometheus_runbooks"],"fault_type":"unknown"},
+  {"query":"Kubernetes pod pending insufficient resources scheduling","expected_ids":["pod_pending","Kube_Pod_Not_Ready_kube_prometheus_runbooks"],"fault_type":"unknown"},
+  {"query":"disk pressure node filesystem almost out of space","expected_ids":["disk_pressure","Node_Filesystem_Almost_Out_Of_Space_kube_prometheus_runbooks"],"fault_type":"unknown"},
+  {"query":"network DNS failure packet loss node unreachable","expected_ids":["network_partition","Node_Network_Receive_Errors_kube_prometheus_runbooks"],"fault_type":"unknown"}
+]
+

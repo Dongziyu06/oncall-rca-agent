@@ -64,6 +64,15 @@ async def build_report(route: dict, evidence: dict) -> str:
         f"使用 Markdown 格式。"
     )
 
+    # Include forensic evidence when available, bounded for prompt safety.
+    forensic_parts = []
+    if evidence.get("logs"):
+        forensic_parts.append(f"容器前次运行日志（截断 1500 字）：{str(evidence.get('logs'))[:1500]}")
+    if evidence.get("events"):
+        forensic_parts.append(f"Pod Events（最近 10 条）：{str(evidence.get('events'))[:1000]}")
+    if forensic_parts:
+        prompt += "\n\n" + "\n".join(forensic_parts)
+    prompt += "\n若日志中出现 panic/error/exit code/signal，必须在根因分析中引用原文，不要忽略。"
     reply = await chat(prompt=prompt, timeout=60, model_env="LLM_MODEL_SUMMARIZE")  # 高复杂度：深度推理模型
     if reply:
         # LLM 已消化 Runbook 知识，不再重复贴原文（避免中英混杂）
@@ -74,3 +83,4 @@ async def build_report(route: dict, evidence: dict) -> str:
     evidence_clean = dict(evidence)
     evidence_clean["runbook"] = clean
     return _template(route, evidence_clean)
+

@@ -44,8 +44,13 @@ def parse_confidence(report_text: str) -> float:
             return float(m.group(1))
     return 0.5  # 解析失败 → 默认不触发追问
 
-def _fallback(fault_type: str, confidence: float) -> dict:
-    q = FALLBACK_QUERIES.get(fault_type, FALLBACK_QUERIES["unknown"])
+def _fallback(fault_type: str, confidence: float, evidence: dict | None = None) -> dict:
+    q = list(FALLBACK_QUERIES.get(fault_type, FALLBACK_QUERIES["unknown"]))
+    evidence = evidence or {}
+    if evidence.get("logs"):
+        q = [x for x in q if "logs --previous" not in str(x.get("command", ""))]
+    if evidence.get("events"):
+        q = [x for x in q if "get events" not in str(x.get("command", ""))]
     return {
         "confidence": confidence,
         "needs_follow_up": confidence < 0.5,
@@ -82,7 +87,7 @@ async def generate_follow_up(fault_type: str, evidence: dict, report_text: str) 
         except Exception:
             pass
 
-    return _fallback(fault_type, confidence)
+    return _fallback(fault_type, confidence, evidence)
 
 def format_follow_up(plan: dict) -> str:
     """将追问计划格式化为 Markdown。"""
@@ -98,3 +103,5 @@ def format_follow_up(plan: dict) -> str:
         cmd = q.get("query") or q.get("command", "")
         lines.append(f"| {q.get('type', '-')} | `{cmd}` | {q.get('purpose', '')} |")
     return "\n".join(lines)
+
+

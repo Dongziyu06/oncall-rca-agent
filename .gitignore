@@ -36,3 +36,5 @@ htmlcov/
 dist/
 build/
 *.tmp
+
+.secrets/
